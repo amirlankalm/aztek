@@ -102,19 +102,27 @@ export async function batchUpdateAgents(
   updates: Array<{ id: string; current_opinion: string; opinion_embedding?: number[] }>
 ) {
   if (!updates.length) return;
-  // Use upsert for batch efficiency
-  const { error } = await supabaseAdmin
-    .from('agents')
-    .upsert(updates, { onConflict: 'id' });
-  if (error) throw error;
+  // Supabase/Postgres may timeout on massive single-statement upserts. Chunk into 500s.
+  const CHUNK = 500;
+  for (let i = 0; i < updates.length; i += CHUNK) {
+    const { error } = await supabaseAdmin
+      .from('agents')
+      .upsert(updates.slice(i, i + CHUNK), { onConflict: 'id' });
+    if (error) throw error;
+  }
 }
 
 // ─── Interactions ────────────────────────────────────────────────────────────
 
 export async function insertInteractions(interactions: any[]) {
   if (!interactions.length) return;
-  const { error } = await supabaseAdmin.from('interactions').insert(interactions);
-  if (error) throw error;
+  const CHUNK = 500;
+  for (let i = 0; i < interactions.length; i += CHUNK) {
+    const { error } = await supabaseAdmin
+      .from('interactions')
+      .insert(interactions.slice(i, i + CHUNK));
+    if (error) throw error;
+  }
 }
 
 export async function getInteractions(simulationId: string) {
@@ -139,8 +147,13 @@ export async function countInteractions(simulationId: string) {
 
 export async function insertKnowledgeGraph(entries: any[]) {
   if (!entries.length) return;
-  const { error } = await supabaseAdmin.from('knowledge_graph').insert(entries);
-  if (error) throw error;
+  const CHUNK = 500;
+  for (let i = 0; i < entries.length; i += CHUNK) {
+    const { error } = await supabaseAdmin
+      .from('knowledge_graph')
+      .insert(entries.slice(i, i + CHUNK));
+    if (error) throw error;
+  }
 }
 
 export async function getKnowledgeGraph(simulationId: string) {

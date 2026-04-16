@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     const lang = simulation.language || 'en';
     const pool = LOCALIZED_ENTROPY[lang] || LOCALIZED_ENTROPY.en;
 
-    const NUM_AGENTS = 1200;
+    const NUM_AGENTS = 800;
     const agentsToInsert = [];
 
     for (let i = 0; i < NUM_AGENTS; i++) {
