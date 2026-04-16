@@ -8,9 +8,19 @@ export async function POST(req: Request) {
     const { prompt, language = 'en' } = await req.json();
     if (!prompt) return NextResponse.json({ error: 'prompt is required' }, { status: 400 });
 
-    // Reset local database completely on init to ensure fresh state
-    resetDB();
+    // Enforce strict Rolling Database Retention (preserve up to 5 simulations) to prevent JSON bloat
     const db = readDB();
+    const MAX_HISTORY = 5;
+    
+    if (db.simulations.length >= MAX_HISTORY) {
+        const retainedSims = db.simulations.slice(-(MAX_HISTORY - 1)); // Leave exact room for the incoming pushing
+        const retainedIds = new Set(retainedSims.map((s: any) => s.id));
+        
+        db.simulations = retainedSims;
+        db.agents = db.agents.filter((a: any) => retainedIds.has(a.simulation_id));
+        db.interactions = db.interactions.filter((a: any) => retainedIds.has(a.simulation_id));
+        db.knowledge_graph = db.knowledge_graph.filter((a: any) => retainedIds.has(a.simulation_id));
+    }
 
     const simId = crypto.randomUUID();
     const newSim = {

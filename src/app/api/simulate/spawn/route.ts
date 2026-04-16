@@ -45,10 +45,42 @@ export async function POST(req: Request) {
     const agentsToInsert = [];
     const NUM_AGENTS = 1200;
     
-    // Unique data entropy pools
-    const occupations = ['data scientist', 'journalist', 'researcher', 'engineer', 'financial analyst', 'sociologist', 'economist', 'academic', 'developer', 'systems architect', 'freelancer', 'consultant', 'policymaker', 'student', 'investigator'];
-    const backgrounds = ['corporate', 'startup sector', 'ngo / non-profit', 'government', 'academia', 'independent / underground', 'public sector'];
-    const genders = ['male', 'female', 'non-binary', 'undisclosed'];
+    // Unique data entropy pools (Localized)
+    const LOCALIZED_ENTROPY: Record<string, any> = {
+       en: {
+          occupations: ['data scientist', 'journalist', 'researcher', 'engineer', 'financial analyst', 'sociologist', 'economist', 'academic', 'developer', 'systems architect', 'freelancer', 'consultant', 'policymaker', 'student', 'investigator'],
+          backgrounds: ['corporate', 'startup sector', 'ngo / non-profit', 'government', 'academia', 'independent / underground', 'public sector'],
+          genders: ['male', 'female', 'non-binary', 'undisclosed'],
+          nuances: ['skeptical', 'passionate', 'analytical', 'indifferent', 'cautious', 'radical', 'pragmatic', 'idealistic', 'defensive', 'opportunistic'],
+          motivations: ['a drive for societal stability', 'a deep distrust of institutional authority', 'a focus on long-term economic prosperity', 'a belief in aggressive systemic reform', 'a commitment to ethical transparency', 'a fear of impending socio-economic collapse'],
+          methodologies: ['advocating for disruptive intervention', 'promoting gradual, consensus-based shifts', 'supporting decentralized community action', 'demanding strict regulatory oversight', 'prioritizing individual autonomy'],
+          template: (base: string, n: string, m: string, b: string, o: string, meth: string) => 
+            `${base} | A ${n} ideological framework driven by ${m}. Operating from a ${b} background, this ${o} evaluates external events by ${meth}.`
+       },
+       ru: {
+          occupations: ['дата-сайентист', 'журналист', 'исследователь', 'инженер', 'фин. аналитик', 'социолог', 'экономист', 'академик', 'разработчик', 'системный архитектор', 'фрилансер', 'консультант', 'политик', 'студент', 'расследователь'],
+          backgrounds: ['корпоративной среды', 'сектора стартапов', 'НПО', 'госсектора', 'научной среды', 'независимой среды', 'общественного сектора'],
+          genders: ['мужчина', 'женщина', 'небинарный', 'не указан'],
+          nuances: ['скептическая', 'страстная', 'аналитическая', 'безразличная', 'осторожная', 'радикальная', 'прагматичная', 'идеалистическая', 'оборонительная', 'оппортунистическая'],
+          motivations: ['стремлением к социальной стабильности', 'глубоким недоверием к властным институтам', 'фокусом на долгосрочном экономическом процветании', 'верой в агрессивные системные реформы', 'приверженностью этической прозрачности', 'страхом надвигающегося социально-экономического коллапса'],
+          methodologies: ['пропаганду радикального вмешательства', 'продвижение постепенных изменений на основе консенсуса', 'поддержку децентрализованных действий сообщества', 'требование строгого регуляторного надзора', 'приоритет индивидуальной автономии'],
+          template: (base: string, n: string, m: string, b: string, o: string, meth: string) => 
+            `${base} | ${n} идеологическая основа, движимая ${m}. Действуя на базе опыта в ${b}, этот ${o} оценивает внешние события через ${meth}.`
+       },
+       kk: {
+          occupations: ['дата-сайентист', 'журналист', 'зерттеуші', 'инженер', 'қаржылық сарапшы', 'социолог', 'экономист', 'академик', 'әзірлеуші', 'жүйелік архитектор', 'фрилансер', 'консультант', 'саясаткер', 'студент', 'тергеуші'],
+          backgrounds: ['корпоративтік орта', 'стартап секторы', 'ҮЕҰ', 'мемлекеттік сектор', 'академиялық орта', 'тәуелсіз орта', 'қоғамдық сектор'],
+          genders: ['ер', 'әйел', 'бейтарап', 'көрсетілмеген'],
+          nuances: ['скептикалық', 'құштарлық', 'аналитикалық', 'немқұрайлы', 'сақтық', 'радикалды', 'прагматикалық', 'идеалистік', 'қорғаныстық', 'оппортунистік'],
+          motivations: ['әлеуметтік тұрақтылыққа ұмтылумен', 'институтционалдық билікке деген терең сенімсіздікпен', 'ұзақ мерзімді экономикалық өркендеуге назар аударумен', 'агрессивті жүйелік реформаларға сенумен', 'этикалық ашықтыққа адалдықпен', 'жақындап келе жатқан әлеуметтік-экономикалық күйзеліс қорқынышымен'],
+          methodologies: ['радикалды араласуды насихаттау', 'консенсус негізінде біртіндеп өзгертуді алға жылжыту', 'орталықсыздандырылған қауымдастық әрекеттерін қолдау', 'қатаң реттеуші қадағалауды талап ету', 'жеке автономияға басымдық беру'],
+          template: (base: string, n: string, m: string, b: string, o: string, meth: string) => 
+            `${base} | ${m} негізделген ${n} идеологиялық негіз. ${b} тәжірибесіне сүйене отырып, бұл ${o} сыртқы оқиғаларды ${meth} арқылы бағалайды.`
+       }
+    };
+
+    const lang = simulation.language || 'en';
+    const pool = LOCALIZED_ENTROPY[lang] || LOCALIZED_ENTROPY.en;
 
     for (let i = 0; i < NUM_AGENTS; i++) {
         const stanceIndex = Math.floor(Math.random() * stances.length);
@@ -56,22 +88,24 @@ export async function POST(req: Request) {
         const embedding = stanceEmbeddings[stanceIndex];
 
         // Generate massive unique variances
-        const randomOcc = occupations[Math.floor(Math.random() * occupations.length)];
-        const randomBg = backgrounds[Math.floor(Math.random() * backgrounds.length)];
-        const randomGen = genders[Math.floor(Math.random() * genders.length)];
-        
-        // Nuance modifiers to make every single opinion entirely unique
-        const nuances = ['skeptical', 'passionate', 'analytical', 'indifferent', 'cautious', 'radical', 'pragmatic', 'idealistic', 'defensive', 'opportunistic'];
-        const randomNuance = nuances[Math.floor(Math.random() * nuances.length)];
+        const randomOcc = pool.occupations[Math.floor(Math.random() * pool.occupations.length)];
+        const randomBg = pool.backgrounds[Math.floor(Math.random() * pool.backgrounds.length)];
+        const randomGen = pool.genders[Math.floor(Math.random() * pool.genders.length)];
+        const randomNuance = pool.nuances[Math.floor(Math.random() * pool.nuances.length)];
+        const randomMotiv = pool.motivations[Math.floor(Math.random() * pool.motivations.length)];
+        const randomMethod = pool.methodologies[Math.floor(Math.random() * pool.methodologies.length)];
 
         // Construct 100% unique alignment string (safely handling objects from LLM)
-        const baseStanceStr = typeof stance === 'string' 
-           ? stance.trim() 
-           : (typeof stance === 'object' && stance !== null 
-              ? (stance as any).stance || (stance as any).name || (stance as any).label || JSON.stringify(stance) 
-              : String(stance));
+        const extractStanceString = (st: any): string => {
+           if (typeof st === 'string') return st.trim();
+           if (typeof st === 'object' && st !== null) {
+              return st.title || st.stance || st.name || st.label || st.category || Object.values(st).find(v => typeof v === 'string') || "Unknown Alignment";
+           }
+           return String(st);
+        };
+        const baseStanceStr = extractStanceString(stance);
               
-        const uniqueAlignment = `${baseStanceStr} | ${randomNuance} perspective rooted in ${randomBg} experience as a ${randomOcc}.`;
+        const uniqueAlignment = pool.template(baseStanceStr, randomNuance, randomMotiv, randomBg, randomOcc, randomMethod);
 
         // Generate pseudo-anonymous handler ID
         const idHex = crypto.randomBytes(3).toString('hex');

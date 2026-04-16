@@ -2,6 +2,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useTranslation } from 'react-i18next';
+import '@/lib/i18n';
 
 const ForceGraph2D: any = dynamic(() => import('react-force-graph-2d'), { ssr: false });
 
@@ -21,14 +23,17 @@ const getNodeColor = (opinionIndex: number) => {
 };
 
 const opinionToKey = (op: any): string => {
-  if (typeof op === 'string') return op;
-  if (typeof op === 'object' && op !== null) {
-    return op.stance || op.label || op.name || op.stance_type || op.title || JSON.stringify(op);
+  let str = 'unknown';
+  if (typeof op === 'string') str = op;
+  else if (typeof op === 'object' && op !== null) {
+    str = op.stance || op.label || op.name || op.stance_type || op.title || JSON.stringify(op);
   }
-  return 'unknown';
+  // Extract strictly the base stance before any nuanced demographic appending (|)
+  return str.split('|')[0].trim();
 };
 
 export default function MultiAgentGraph({ agents, interactions, opinions, onNodeClick, isFullscreen, toggleFullscreen }: MultiAgentGraphProps) {
+  const { t } = useTranslation();
   const fgRef = useRef<any>(null);
   const [graphData, setGraphData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
 
@@ -164,7 +169,7 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
         }}
         className="absolute top-6 left-6 z-[100] bg-transparent border border-[#27272a] text-[#ffffff] px-4 py-2 rounded-sm text-xs lowercase tracking-widest hover:bg-[#27272a] transition-colors cursor-pointer"
       >
-        {isFullscreen ? 'exit fullscreen' : 'fullscreen'}
+        {isFullscreen ? t('exit_fullscreen') : t('fullscreen')}
       </button>
 
       {typeof window !== 'undefined' && (

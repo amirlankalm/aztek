@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, ArrowUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import '@/lib/i18n';
 
 export default function ReportPage() {
+  const { t, i18n } = useTranslation();
   const [chatMessage, setChatMessage] = useState('');
   const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,9 +32,25 @@ export default function ReportPage() {
         if (data.agents && data.agents.length > 0) {
            const stanceCounts: Record<string, number> = {};
            data.agents.forEach((a: any) => {
-              const baseStance = typeof a.current_opinion === 'string' 
-                ? a.current_opinion.split('|')[0].trim() 
-                : 'Unknown';
+              const extractBaseStance = (opinion: any) => {
+                 let str = t('unknown_alignment');
+                 if (typeof opinion === 'string') {
+                    str = opinion.split('|')[0].trim();
+                 } else if (typeof opinion === 'object' && opinion !== null) {
+                    str = opinion.title || opinion.stance || opinion.label || opinion.name || opinion.category || t('unknown_alignment');
+                 }
+                 
+                 // Fallback for legacy DB entries containing stringified JSON
+                 if (str.startsWith('{')) {
+                    try {
+                       const parsed = JSON.parse(str);
+                       str = parsed.title || parsed.stance || parsed.label || parsed.name || parsed.category || t('unknown_alignment');
+                    } catch(e) {}
+                 }
+                 return str;
+              };
+              
+              const baseStance = extractBaseStance(a.current_opinion);
               stanceCounts[baseStance] = (stanceCounts[baseStance] || 0) + 1;
            });
 
@@ -50,7 +69,7 @@ export default function ReportPage() {
       }
     }
     fetchStats();
-  }, [simId]);
+  }, [simId, t]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -85,10 +104,10 @@ export default function ReportPage() {
        if (data.reply) {
           setMessages([...newMessages, { role: 'assistant', content: data.reply }]);
        } else {
-          setMessages([...newMessages, { role: 'assistant', content: 'Connection degraded.' }]);
+          setMessages([...newMessages, { role: 'assistant', content: t('connection_degraded') }]);
        }
     } catch (e) {
-       setMessages([...newMessages, { role: 'assistant', content: 'System offline.' }]);
+       setMessages([...newMessages, { role: 'assistant', content: t('system_offline') }]);
     } finally {
        setIsLoading(false);
     }
@@ -111,9 +130,9 @@ export default function ReportPage() {
             onClick={() => window.location.href = '/'}
             className="text-[10px] uppercase tracking-widest text-[#a1a1aa] hover:text-[#ffffff] transition-colors border border-[#27272a] px-3 py-1.5 rounded-sm"
           >
-            &lt; return
+            &lt; {t('return')}
           </button>
-          <div className="text-xs tracking-[0.3em] font-bold text-[#a1a1aa] lowercase">aztek [report]</div>
+          <div className="text-xs tracking-[0.3em] font-bold text-[#a1a1aa] lowercase">{t('aztek')} [report]</div>
         </div>
         {isLoading && <div className="text-[10px] tracking-widest text-[#a1a1aa] animate-pulse lowercase">rx/tx</div>}
       </header>
@@ -124,9 +143,9 @@ export default function ReportPage() {
            {messages.length === 0 ? (
              <div className="flex flex-col gap-8 mt-12 w-full">
                <div className="flex flex-col gap-2">
-                 <h1 className="text-base text-[#ffffff]">simulation_reporter_active</h1>
+                 <h1 className="text-base text-[#ffffff]">{t('simulation_reporter_active')}</h1>
                  <p className="text-xs text-[#52525b] leading-relaxed">
-                   i have ingested the entirety of the most recent simulation run logic, interactions, node metrics, and opinion telemetry.
+                   {t('reporter_ingested')}
                  </p>
                </div>
 
@@ -135,16 +154,16 @@ export default function ReportPage() {
                  <div className="w-full border border-[#27272a] rounded-sm bg-[#0a0a0a] p-6 shadow-2xl">
                     <div className="flex justify-between items-end border-b border-[#27272a] pb-4 mb-6">
                       <div className="flex flex-col gap-1">
-                        <span className="text-[10px] text-[#52525b] uppercase tracking-widest">Global Telemetry Metric</span>
+                        <span className="text-[10px] text-[#52525b] uppercase tracking-widest">{t('global_telemetry')}</span>
                         <span className="text-[#ffffff] text-sm truncate max-w-[250px]">{simStats.userTopic}</span>
                       </div>
                       <div className="flex gap-4 text-right">
                         <div className="flex flex-col gap-1">
-                          <span className="text-[10px] text-[#52525b] uppercase tracking-widest">Nodes</span>
+                          <span className="text-[10px] text-[#52525b] uppercase tracking-widest">{t('nodes')}</span>
                           <span className="text-[#a1a1aa] text-xs">{simStats.totalAgents}</span>
                         </div>
                         <div className="flex flex-col gap-1">
-                          <span className="text-[10px] text-[#52525b] uppercase tracking-widest">Edges</span>
+                          <span className="text-[10px] text-[#52525b] uppercase tracking-widest">{t('edges')}</span>
                           <span className="text-[#a1a1aa] text-xs">{simStats.interactions}</span>
                         </div>
                       </div>
@@ -173,13 +192,13 @@ export default function ReportPage() {
                )}
 
                <p className="text-xs text-[#52525b] mt-4">
-                 what would you like to know about the outcome?
+                 {t('ask_question')}
                </p>
              </div>
            ) : (
              messages.map((msg, i) => (
                 <div key={i} className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                   <span className="text-[10px] text-[#52525b] uppercase tracking-widest">{msg.role === 'user' ? 'operator' : 'aztek'}</span>
+                   <span className="text-[10px] text-[#52525b] uppercase tracking-widest">{msg.role === 'user' ? t('operator') : t('aztek')}</span>
                    <div className={`text-sm leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'text-[#a1a1aa] max-w-[80%]' : 'text-[#ffffff] border-l-2 border-[#27272a] pl-4 max-w-[95%]'}`}>
                      {msg.content}
                    </div>
@@ -199,7 +218,7 @@ export default function ReportPage() {
                 value={chatMessage}
                 onChange={e => setChatMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="query simulation telemetry..."
+                placeholder={t('input_query')}
                 className="w-full bg-transparent text-[#ffffff] placeholder-[#52525b] focus:outline-none text-sm tracking-wide resize-none h-16"
                 spellCheck={false}
               />

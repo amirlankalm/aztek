@@ -78,12 +78,19 @@ export async function POST(req: Request) {
                          agent.current_opinion = newStance;
                          if (newEmbed) agent.opinion_embedding = newEmbed;
                          
+                         const LOG_TEMPLATES: Record<string, string> = {
+                             en: `Influenced to adopt: ${newStance}`,
+                             ru: `Под влиянием перешел к: ${newStance}`,
+                             kk: `Ақпарат әсерінен қабылдады: ${newStance}`
+                         };
+                         const interactionMsg = LOG_TEMPLATES[simulation.language || 'en'] || LOG_TEMPLATES.en;
+
                          db.interactions.push({
                              id: crypto.randomUUID(),
                              simulation_id: simulationId,
                              source_agent_id: peer.id,
                              target_agent_id: agent.id,
-                             message: `Influenced to adopt: ${newStance}`,
+                             message: interactionMsg,
                              impact_score: impactScore,
                              round_number: roundNumber
                          });

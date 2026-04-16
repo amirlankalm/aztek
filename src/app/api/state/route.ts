@@ -5,9 +5,14 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const simId = searchParams.get('simId');
 
-  if (!simId) return NextResponse.json({ error: 'simId required' }, { status: 400 });
-
   const db = readDB();
+  
+  if (!simId) {
+    return NextResponse.json({ 
+       simulations: db.simulations.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    });
+  }
+
   const agents = db.agents.filter(a => a.simulation_id === simId);
   const interactions = db.interactions.filter(i => i.simulation_id === simId);
 

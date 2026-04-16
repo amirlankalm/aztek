@@ -16,11 +16,22 @@ export default function Dashboard() {
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
 
-  const fetchGraphData = async () => {
-    if (!simId) return;
+  React.useEffect(() => {
+    fetch('/api/state')
+      .then(res => res.json())
+      .then(data => {
+         if (data.simulations) setHistory(data.simulations);
+      })
+      .catch(console.error);
+  }, []);
+
+  const fetchGraphData = async (targetId?: string) => {
+    const idToFetch = targetId || simId;
+    if (!idToFetch) return;
     try {
-      const res = await fetch(`/api/state?simId=${simId}`);
+      const res = await fetch(`/api/state?simId=${idToFetch}`);
       if (!res.ok) throw new Error('API fetch error');
       const data = await res.json();
       
@@ -28,12 +39,15 @@ export default function Dashboard() {
       setInteractions(data.interactions || []);
       const simulation = data.simulation;
       
-      // Safely extract string values for opinion categorization (handles if current_opinion is an object)
+      // Safely extract strictly the base string values for opinion categorization
       const ops = (data.agents || []).map((a: any) => {
+        let str = 'unknown';
         if (typeof a.current_opinion === 'object' && a.current_opinion !== null) {
-          return a.current_opinion.stance || a.current_opinion.label || a.current_opinion.stance_type || JSON.stringify(a.current_opinion);
+          str = a.current_opinion.stance || a.current_opinion.label || a.current_opinion.stance_type || JSON.stringify(a.current_opinion);
+        } else {
+          str = a.current_opinion || 'unknown';
         }
-        return a.current_opinion || 'unknown';
+        return str.split('|')[0].trim();
       });
       setOpinions(Array.from(new Set(ops)) as string[]);
       if (simulation && simulation.stock_market) {
@@ -176,6 +190,32 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* History Block */}
+          {history.length > 0 && !simId && (
+            <div className="flex flex-col gap-2 mt-6 border-t border-[#27272a] pt-6 flex-1">
+              <label className="text-[#a1a1aa] tracking-widest lowercase">{t('saved_runs')}</label>
+              <div className="flex flex-col gap-2 overflow-y-auto pr-2 custom-scrollbar">
+                 {history.map((sim, i) => (
+                    <button 
+                       key={i} 
+                       onClick={() => {
+                          setSimId(sim.id);
+                          setPrompt(sim.user_prompt);
+                          setStatus(t('status_live'));
+                          fetchGraphData(sim.id);
+                       }}
+                       className="text-left p-3 border border-[#27272a] rounded-sm bg-[#0a0a0a] hover:bg-[#18181b] transition-colors group cursor-pointer"
+                    >
+                       <span className="block text-[#ffffff] text-[10px] uppercase tracking-widest truncate">{sim.user_prompt}</span>
+                       <span className="block text-[#52525b] text-[9px] mt-1 group-hover:text-[#a1a1aa] transition-colors">
+                          {new Date(sim.created_at).toLocaleString(i18n.language)}
+                       </span>
+                    </button>
+                 ))}
+              </div>
+            </div>
+          )}
+
           {/* Status Line */}
           <div className="mt-auto border-t border-[#27272a] pt-4 flex justify-between items-center text-[10px]">
              <span className="text-[#a1a1aa]">system [dashboard]</span>
@@ -198,7 +238,7 @@ export default function Dashboard() {
             <div className="flex flex-col gap-4">
                {/* Identity & Core Attributes */}
                <div>
-                 <span className="block text-[#a1a1aa] text-[10px] uppercase tracking-widest mb-1">identity</span>
+                 <span className="block text-[#a1a1aa] text-[10px] uppercase tracking-widest mb-1">{t('identity')}</span>
                  <div className="flex items-center gap-2">
                    <span className="text-[#ffffff] text-sm font-bold">
                      {selectedAgent.name || 'agent'}
@@ -215,22 +255,33 @@ export default function Dashboard() {
                {/* Alignment / Opinion - SAFE RENDERING */}
                <div>
                  <span className="block text-[#a1a1aa] mb-1.5 text-[10px] tracking-widest uppercase">{t('alignment')}</span>
-                 {typeof selectedAgent.current_opinion === 'object' && selectedAgent.current_opinion !== null ? (
-                   <div className="border border-[#27272a] p-3 rounded-sm bg-[#0f0f0f]">
-                     <span className="text-[#ffffff] text-xs block mb-1">
-                       {selectedAgent.current_opinion.stance || selectedAgent.current_opinion.label || selectedAgent.current_opinion.name || 'unclassified'}
-                     </span>
-                     {(selectedAgent.current_opinion.description || selectedAgent.current_opinion.substance) && (
-                       <span className="text-[#a1a1aa] text-[11px] leading-relaxed block italic border-l border-[#3f3f46] pl-2 mt-1">
-                         {selectedAgent.current_opinion.description || selectedAgent.current_opinion.substance}
+                 {(() => {
+                   let opStr = String(selectedAgent.current_opinion || 'unknown');
+                   let parts = opStr.split('|');
+                   let title = parts[0]?.trim();
+                   let desc = parts.slice(1).join('|').trim();
+
+                   // Safely recover if previous DB write contained stringified LLM JSON objects
+                   if (title.startsWith('{')) {
+                      try {
+                        const parsed = JSON.parse(title);
+                        title = parsed.title || parsed.stance || parsed.label || parsed.name || parsed.category || 'Unknown Profile';
+                      } catch(e) {}
+                   }
+
+                   return (
+                     <div className="border border-[#27272a] p-3 rounded-sm bg-[#0f0f0f]">
+                       <span className="text-[#ffffff] text-xs font-bold block mb-1">
+                         {title}
                        </span>
-                     )}
-                   </div>
-                 ) : (
-                   <span className="text-[#ffffff] text-xs block bg-[#0f0f0f] border border-[#27272a] p-2 rounded-sm">
-                     {String(selectedAgent.current_opinion || 'unknown')}
-                   </span>
-                 )}
+                       {desc && (
+                         <span className="text-[#a1a1aa] text-[11px] leading-relaxed block italic border-l border-[#3f3f46] pl-2 mt-2">
+                           {desc}
+                         </span>
+                       )}
+                     </div>
+                   );
+                 })()}
                </div>
 
                {/* Metrics */}
@@ -248,7 +299,7 @@ export default function Dashboard() {
                {/* Deep Memory / Traits Dump */}
                {(selectedAgent.memory || selectedAgent.traits || selectedAgent.history) && (
                   <div>
-                    <span className="block text-[#a1a1aa] mb-1.5 text-[10px] tracking-widest uppercase">Deep Data</span>
+                    <span className="block text-[#a1a1aa] mb-1.5 text-[10px] tracking-widest uppercase">{t('deep_data')}</span>
                     <pre className="text-[#52525b] text-[9px] whitespace-pre-wrap leading-tight bg-[#0f0f0f] p-2 border border-[#27272a] rounded-sm max-h-32 overflow-y-auto">
                       {JSON.stringify({ 
                          memory: selectedAgent.memory, 

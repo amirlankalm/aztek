@@ -16,10 +16,13 @@ export async function POST(req: Request) {
 
     const agents = db.agents.filter(a => a.simulation_id === simulation.id);
     const uniqueStances = Array.from(new Set(agents.map(a => {
+        let str = 'unknown';
         if (typeof a.current_opinion === 'object' && a.current_opinion !== null) {
-          return a.current_opinion.label || a.current_opinion.stance || JSON.stringify(a.current_opinion);
+          str = a.current_opinion.label || a.current_opinion.stance || JSON.stringify(a.current_opinion);
+        } else {
+          str = String(a.current_opinion);
         }
-        return a.current_opinion;
+        return str.split('|')[0].trim();
     })));
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
