@@ -45,10 +45,16 @@ export default function BenchmarkPage() {
   useEffect(() => {
     const activeEl = tocRefs.current[activeSection];
     if (activeEl) {
-      setIndicatorStyle({
-        top: activeEl.offsetTop,
-        height: activeEl.offsetHeight,
-      });
+      // Calculate top relative to the list container
+      const listContainer = activeEl.closest('ul');
+      if (listContainer) {
+        const rect = activeEl.getBoundingClientRect();
+        const containerRect = listContainer.getBoundingClientRect();
+        setIndicatorStyle({
+          top: rect.top - containerRect.top,
+          height: rect.height,
+        });
+      }
     }
   }, [activeSection]);
 
@@ -201,22 +207,20 @@ export default function BenchmarkPage() {
                 />
                 
                 <li 
-                  ref={el => { tocRefs.current['abstract'] = el; }}
                   onClick={() => scrollToSection('abstract')}
-                  className={`cursor-pointer transition-colors leading-[1.4] ${activeSection === 'abstract' ? 'text-[#ffffff] font-bold' : 'text-[#a1a1aa] hover:text-[#ffffff]'}`}
+                  className={`group cursor-pointer transition-colors leading-[1.4] ${activeSection === 'abstract' ? 'text-[#ffffff] font-bold' : 'text-[#a1a1aa] hover:text-[#ffffff]'}`}
                 >
-                  Abstract
+                  <span ref={el => { tocRefs.current['abstract'] = el; }} className="inline-block py-0.5">Abstract</span>
                 </li>
                 {data.sections.map(s => {
                   const title = s.title.split(': ')[1] || s.title.split(' ')[1] || s.title;
                   return (
                     <li 
                       key={s.id}
-                      ref={el => { tocRefs.current[s.id] = el; }}
                       onClick={() => scrollToSection(s.id)}
-                      className={`cursor-pointer transition-colors leading-[1.4] py-1 ${activeSection === s.id ? 'text-[#ffffff] font-bold' : 'text-[#a1a1aa] hover:text-[#ffffff]'}`}
+                      className={`group cursor-pointer transition-colors leading-[1.4] ${activeSection === s.id ? 'text-[#ffffff] font-bold' : 'text-[#a1a1aa] hover:text-[#ffffff]'}`}
                     >
-                      {title}
+                      <span ref={el => { tocRefs.current[s.id] = el; }} className="inline-block py-0.5">{title}</span>
                     </li>
                   );
                 })}
