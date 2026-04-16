@@ -24,6 +24,7 @@ export default function Dashboard() {
   const [localHistory, setLocalHistory] = useState<any[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [showReality, setShowReality] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // 1. Persistence Engine: Sync to localStorage
   React.useEffect(() => {
@@ -246,10 +247,20 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#0f0f0f] text-[#ffffff] overflow-hidden font-mono tracking-wide text-xs">
+    <div className="flex flex-col lg:flex-row h-screen w-full bg-[#0f0f0f] text-[#ffffff] overflow-hidden font-mono tracking-wide text-xs">
       
+      {/* Mobile Nav Toggle */}
+      <div className="lg:hidden fixed top-4 right-4 z-[60] flex gap-2">
+         <button 
+           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+           className="w-10 h-10 bg-[#18181b] border border-[#27272a] rounded-sm flex items-center justify-center text-[#ffffff] hover:bg-[#27272a] transition-colors"
+         >
+           {isSidebarOpen ? '[x]' : '[menu]'}
+         </button>
+      </div>
+
       {/* Main Workbench Area */}
-      <main className="flex-1 flex flex-col relative bg-transparent">
+      <main className="flex-1 flex flex-col relative bg-transparent overflow-hidden h-full">
          {/* Top Section: Interaction Visualization */}
          <div className="flex-1 relative">
             {agents.length > 0 ? (
@@ -275,8 +286,14 @@ export default function Dashboard() {
       </main>
 
       {/* Sidebar - Right Side, Sharp, Transparent, Monochromatic */}
-      {!isFullscreen && (
-        <aside className="w-96 min-w-96 h-full border-l border-[#27272a] bg-[#0f0f0f] flex flex-col p-6 gap-6 z-20">
+      <aside className={`
+        ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+        fixed lg:relative inset-0 lg:inset-auto
+        w-full lg:w-96 lg:min-w-96 h-full 
+        border-l border-[#27272a] bg-[#0f0f0f] 
+        flex flex-col p-6 gap-6 z-50 
+        transition-transform duration-300 ease-in-out
+      `}>
           
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[#27272a] pb-4">
@@ -415,11 +432,18 @@ export default function Dashboard() {
           </div>
 
         </aside>
-      )}
 
-      {/* Global Node Overlay - Moved to Bottom Left */}
+      {/* Global Node Overlay - Adaptive Sheet */}
       {selectedAgent && (
-         <div className="absolute bottom-6 left-6 w-96 bg-[#0a0a0a] border border-[#27272a] rounded-sm p-5 z-[60] shadow-2xl overflow-y-auto max-h-[85vh]">
+         <div className={`
+           fixed z-[60] border-[#27272a] bg-[#0a0a0a] shadow-2xl transition-all duration-300
+           ${isFullscreen ? 'hidden' : 'flex'}
+           flex-col
+           /* Mobile Styling: Bottom Sheet */
+           bottom-0 left-0 w-full rounded-t-xl border-t h-[60vh] p-6 lg:p-5
+           /* Desktop Styling: Side Widget */
+           lg:bottom-6 lg:left-6 lg:w-96 lg:h-auto lg:max-h-[85vh] lg:rounded-sm lg:border
+         `}>
             <div className="flex justify-between border-b border-[#27272a] pb-3 mb-4">
                <span className="text-[#a1a1aa] tracking-widest text-[10px] uppercase">{t('node_data')}</span>
                <button onClick={() => setSelectedAgent(null)} className="text-[#a1a1aa] hover:text-[#ffffff] cursor-pointer bg-transparent border-none">[x]</button>

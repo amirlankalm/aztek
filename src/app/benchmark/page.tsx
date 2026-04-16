@@ -89,15 +89,15 @@ export default function BenchmarkPage() {
             
             {/* Header / Intro */}
             <section id="abstract" className="scroll-mt-32">
-              <div className="flex gap-2 mb-8">
+              <div className="flex gap-2 mb-6">
                 {data.tags.map(tag => (
                   <span key={tag} className="tag">{tag}</span>
                 ))}
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold leading-tight uppercase tracking-tighter mb-12">
+              <h1 className="text-3xl md:text-5xl font-bold leading-tight uppercase tracking-tighter mb-8 lg:mb-12">
                  {data.title}
               </h1>
-              <p className="text-[#f4f4f5] text-lg lg:text-xl leading-relaxed opacity-90">
+              <p className="text-[#f4f4f5] text-base lg:text-xl leading-relaxed opacity-90">
                  {data.abstract}
               </p>
             </section>
@@ -229,6 +229,37 @@ export default function BenchmarkPage() {
           </aside>
 
         </div>
+      </div>
+
+      {/* MOBILE FLOATING DOCK (Table of Contents / Progress) */}
+      <div className="lg:hidden fixed bottom-6 left-0 right-0 z-50 px-6">
+         <div className="bg-[#18181b]/95 backdrop-blur-md border border-[#ffffff]/10 h-14 rounded-full flex items-center justify-between px-6 shadow-2xl">
+            <div className="flex flex-col overflow-hidden">
+               <span className="text-[8px] text-[#71717a] uppercase tracking-widest leading-none mb-1">current view</span>
+               <span className="text-[10px] text-[#ffffff] font-bold uppercase truncate max-w-[150px]">
+                  {activeSection === 'abstract' ? 'Abstract' : (data.sections.find((s: any) => s.id === activeSection)?.title.split(': ')[1] || 'Research')}
+               </span>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="text-[10px] text-[#a1a1aa] hover:text-[#ffffff] uppercase tracking-widest font-bold"
+              >
+                top
+              </button>
+              <div className="h-4 w-[1px] bg-[#27272a]"></div>
+              <div className="flex gap-2">
+                 {['abstract', ...data.sections.map((s: any) => s.id)].map(id => (
+                    <button 
+                      key={id} 
+                      onClick={() => scrollToSection(id)}
+                      className={`w-1.5 h-1.5 rounded-full transition-all ${activeSection === id ? 'bg-[#ffffff] scale-125' : 'bg-[#3f3f46]'}`}
+                    ></button>
+                 ))}
+              </div>
+            </div>
+         </div>
       </div>
     </main>
   );
