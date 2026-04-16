@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import MultiAgentGraph from '@/components/MultiAgentGraph';
 import SystemConsole from '@/components/SystemConsole';
-import RealityExtraction from '@/components/RealityExtraction';
+import RealityExtraction from '../components/RealityExtraction';
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
@@ -338,6 +339,11 @@ export default function Dashboard() {
                 </button>
               </>
             )}
+
+            {/* Scientific Benchmark Link */}
+            <Link href="/benchmark" className="w-full py-3 text-[10px] text-[#71717a] border border-[#27272a] rounded-[2px] tracking-[0.4em] uppercase flex items-center justify-center hover:text-[#ffffff] hover:border-[#ffffff] transition-all bg-[#18181b]/50 mt-4 group">
+               benchmark: fidelity audit <span className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity font-bold">→</span>
+            </Link>
           </div>
 
           {/* History Block */}
