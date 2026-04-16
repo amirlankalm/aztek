@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  background-color: #0f0f0f;
+  color: #ffffff;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Base custom classes matching trynia.ai */
+.border-divider {
+  border-color: #27272a;
+}
+.text-sec {
+  color: #a1a1aa;
+}
+
+/* React Flow customizations for pure terminal look */
+.react-flow__node {
+  border-radius: 2px !important;
+  border: 1px solid #27272a !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: crosshair;
+}
+.react-flow__node:hover {
+  border-color: #ffffff !important;
+}
+
+.custom-transition-node {
+  transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.react-flow__edge-path {
+  stroke: #27272a;
+}
