@@ -17,7 +17,7 @@ export default function BenchmarkPage() {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState('abstract');
   const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, height: 0 });
-  const tocRefs = useRef<{[key: string]: HTMLLIElement | null}>({});
+  const tocRefs = useRef<{[key: string]: HTMLSpanElement | null}>({});
 
   // IntersectionObserver for TOC highlight
   useEffect(() => {
