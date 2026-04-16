@@ -5,29 +5,31 @@ import Link from 'next/link';
 import { benchmarkData as data } from '@/lib/benchmarkData';
 import { useTranslation } from 'react-i18next';
 import { ScientificChart } from '@/components/ScientificChart';
+import { motion } from 'framer-motion';
 import '@/lib/i18n';
 
 /**
- * AZTEK RESEARCH JOURNAL v4.1: /benchmark
- * Optimized for Vercel Deployment (Monochromatic SVG Visuals)
+ * AZTEK RESEARCH JOURNAL v4.2: /benchmark
+ * Optimized for Vercel Deployment (Smooth TOC Sync)
  */
 
 export default function BenchmarkPage() {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState('abstract');
-  const sectionRefs = useRef<{[key: string]: HTMLElement | null}>({});
+  const [indicatorStyle, setIndicatorStyle] = useState({ top: 0, height: 0 });
+  const tocRefs = useRef<{[key: string]: HTMLLIElement | null}>({});
 
   // IntersectionObserver for TOC highlight
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.4) {
             setActiveSection(entry.target.id);
           }
         });
       },
-      { rootMargin: '-20% 0% -60% 0%', threshold: 0 }
+      { rootMargin: '-10% 0% -50% 0%', threshold: [0.4] }
     );
 
     const sections = ['abstract', ...data.sections.map(s => s.id)];
@@ -38,6 +40,17 @@ export default function BenchmarkPage() {
 
     return () => observer.disconnect();
   }, []);
+
+  // Sync Indicator with DOM Element
+  useEffect(() => {
+    const activeEl = tocRefs.current[activeSection];
+    if (activeEl) {
+      setIndicatorStyle({
+        top: activeEl.offsetTop,
+        height: activeEl.offsetHeight,
+      });
+    }
+  }, [activeSection]);
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -171,34 +184,42 @@ export default function BenchmarkPage() {
             <div className="sticky top-24 pl-8 border-l border-[#27272a]">
               <label className="terminal-label block mb-8">On this page</label>
               <ul className="space-y-6 text-[11px] relative">
-                {/* Active Indicator Line */}
-                <div 
-                  className="absolute left-[-33px] w-[1px] bg-[#ffffff] transition-all duration-300" 
-                  style={{ 
-                    height: '14px', 
-                    top: (() => {
-                      const sections = ['abstract', ...data.sections.map(s => s.id)];
-                      const index = sections.indexOf(activeSection);
-                      return `${index * 30 + 4}px`; // Adjusting for list spacing
-                    })() 
+                {/* Active Indicator Line (Framer Motion Sync) */}
+                <motion.div 
+                  className="absolute left-[-33px] w-[2px] bg-[#ffffff] z-10"
+                  initial={false}
+                  animate={{ 
+                    top: indicatorStyle.top,
+                    height: indicatorStyle.height
+                  }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 250,
+                    damping: 25,
+                    mass: 0.5
                   }}
                 />
                 
                 <li 
+                  ref={el => { tocRefs.current['abstract'] = el; }}
                   onClick={() => scrollToSection('abstract')}
-                  className={`cursor-pointer transition-colors ${activeSection === 'abstract' ? 'text-[#ffffff]' : 'text-[#a1a1aa] hover:text-[#ffffff]'}`}
+                  className={`cursor-pointer transition-colors leading-[1.4] ${activeSection === 'abstract' ? 'text-[#ffffff] font-bold' : 'text-[#a1a1aa] hover:text-[#ffffff]'}`}
                 >
                   Abstract
                 </li>
-                {data.sections.map(s => (
-                  <li 
-                    key={s.id}
-                    onClick={() => scrollToSection(s.id)}
-                    className={`cursor-pointer transition-colors ${activeSection === s.id ? 'text-[#ffffff]' : 'text-[#a1a1aa] hover:text-[#ffffff]'}`}
-                  >
-                    {s.title.split(': ')[1] || s.title.split(' ')[1] || s.title}
-                  </li>
-                ))}
+                {data.sections.map(s => {
+                  const title = s.title.split(': ')[1] || s.title.split(' ')[1] || s.title;
+                  return (
+                    <li 
+                      key={s.id}
+                      ref={el => { tocRefs.current[s.id] = el; }}
+                      onClick={() => scrollToSection(s.id)}
+                      className={`cursor-pointer transition-colors leading-[1.4] py-1 ${activeSection === s.id ? 'text-[#ffffff] font-bold' : 'text-[#a1a1aa] hover:text-[#ffffff]'}`}
+                    >
+                      {title}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </aside>
