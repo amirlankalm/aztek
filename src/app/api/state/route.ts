@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   getSimulations,
-  getSimulation,
-  getAgents,
-  getInteractions,
+  getWorldState,
 } from '@/lib/db';
 
 export async function GET(req: Request) {
