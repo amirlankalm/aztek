@@ -3,7 +3,8 @@
  * pseudo-randomly to mock OpenAI embeddings for localized processing.
  */
 export function generateDeterministicEmbedding(input: string): number[] {
-  const vector = new Array(1536).fill(0);
+  const DIM = 64; // Dramatically reduced from 1536 for high-scale simulation stability
+  const vector = new Array(DIM).fill(0);
   
   // Simple seed hash
   let seed = 0;
@@ -20,7 +21,7 @@ export function generateDeterministicEmbedding(input: string): number[] {
   
   // Generate -1 to 1 vector values
   let magnitude = 0;
-  for (let i = 0; i < 1536; i++) {
+  for (let i = 0; i < DIM; i++) {
     const val = random() * 2 - 1;
     vector[i] = val;
     magnitude += val * val;
@@ -28,7 +29,7 @@ export function generateDeterministicEmbedding(input: string): number[] {
   
   // Normalize vector
   magnitude = Math.sqrt(magnitude);
-  for (let i = 0; i < 1536; i++) {
+  for (let i = 0; i < DIM; i++) {
     vector[i] /= magnitude;
   }
   

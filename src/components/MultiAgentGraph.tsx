@@ -16,9 +16,14 @@ interface MultiAgentGraphProps {
   toggleFullscreen: () => void;
 }
 
-const getNodeColor = (opinionIndex: number) => {
-  const palette = ['#e4e4e7', '#a1a1aa', '#71717a', '#d4d4d8', '#52525b', '#f5f5f5', '#3f3f46'];
-  return palette[opinionIndex % palette.length] || '#a1a1aa';
+// MIRO-AESTHETIC V2 PALETTE: High-Fidelity Neons
+const getNodeColor = (opinionIndex: number, role: string) => {
+  if (role === 'Influencer') return '#00f2ff'; // Electric Blue
+  if (role === 'Institution') return '#ff0055'; // Neon Pink (Authority)
+  if (role === 'Media') return '#aaff00'; // Lime Green
+  
+  const palette = ['#ffffff', '#00f2ff', '#7000ff', '#ff0055', '#aaff00', '#ffaa00', '#00ff88'];
+  return palette[opinionIndex % palette.length] || '#ffffff';
 };
 
 const opinionToKey = (op: any): string => {
@@ -33,31 +38,35 @@ const opinionToKey = (op: any): string => {
 export default function MultiAgentGraph({ agents, interactions, opinions, onNodeClick, isFullscreen, toggleFullscreen }: MultiAgentGraphProps) {
   const { t } = useTranslation();
   const fgRef = useRef<any>(null);
-  const [graphData, setGraphData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
-
-  useEffect(() => {
-    if (!agents.length) return;
+  
+  const graphData = React.useMemo(() => {
+    if (!agents.length) return { nodes: [], links: [] };
 
     const baseNodes: any[] = [];
     const baseLinks: any[] = [];
-    const nodeIdSet = new Set<string>();
-
+    
+    // 1. Build Nodes with MIRO-PULSE Physics
     agents.forEach(agent => {
       const agentOpKey = opinionToKey(agent.current_opinion);
       const opIndex = opinions.indexOf(agentOpKey);
 
-      nodeIdSet.add(agent.id);
+      let nodeVal = 5; 
+      if (agent.role === 'Influencer') nodeVal = 20;
+      else if (agent.role === 'Media' || agent.role === 'Institution') nodeVal = 12;
+
       baseNodes.push({
         id: agent.id,
+        name: agent.name,
         data: agent,
         baseOp: agentOpKey,
-        color: getNodeColor(opIndex >= 0 ? opIndex : 0),
-        val: 1.5,
-        x: (Math.random() - 0.5) * 50,
-        y: (Math.random() - 0.5) * 50
+        color: getNodeColor(opIndex >= 0 ? opIndex : 0, agent.role),
+        role: agent.role || 'Citizen',
+        val: nodeVal
       });
     });
 
+    // 2. Build Organic Flow Links
+    // Connect a subset of peers to prevent visual noise
     const agentsByOp: Record<string, string[]> = {};
     baseNodes.forEach(n => {
       if (!agentsByOp[n.baseOp]) agentsByOp[n.baseOp] = [];
@@ -65,8 +74,9 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
     });
 
     Object.values(agentsByOp).forEach(group => {
+      // Connect to 2 random peers in the same cluster
       group.forEach(agentId => {
-        for (let k = 0; k < 2; k++) {
+        for (let i = 0; i < 1; i++) {
           const target = group[Math.floor(Math.random() * group.length)];
           if (target !== agentId) {
             baseLinks.push({ source: agentId, target, isAffinity: true });
@@ -75,50 +85,39 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
       });
     });
 
-    const maxEdges = Math.min(interactions.length, 2500);
-    const sampledEdges = interactions.slice(-maxEdges);
-    sampledEdges.forEach(inter => {
-      if (nodeIdSet.has(inter.source_agent_id) && nodeIdSet.has(inter.target_agent_id)) {
-        baseLinks.push({
-          source: inter.source_agent_id,
-          target: inter.target_agent_id,
-          isExplicit: true
-        });
-      }
+    // Add recent interaction links with 'Electric' intensity
+    interactions.slice(-100).forEach(inter => {
+      baseLinks.push({
+        source: inter.source_agent_id,
+        target: inter.target_agent_id,
+        isInteraction: true,
+        impact: inter.impact_score
+      });
     });
 
-    const agentList = agents.map(a => a.id);
-    const peerLinkCount = 800;
-    for (let i = 0; i < peerLinkCount; i++) {
-      const a = agentList[Math.floor(Math.random() * agentList.length)];
-      const b = agentList[Math.floor(Math.random() * agentList.length)];
-      if (a !== b) baseLinks.push({ source: a, target: b, isPeer: true });
-    }
-
-    setGraphData({ nodes: baseNodes, links: baseLinks });
+    return { nodes: baseNodes, links: baseLinks };
   }, [agents, interactions, opinions]);
 
   useEffect(() => {
     const fg = fgRef.current;
     if (fg && fg.d3Force) {
-      fg.zoom(2.5, 0);
-      fg.d3Force('charge').strength(-25);
-      fg.d3Force('link').distance((link: any) => {
-        if (link.isAffinity) return 8;
-        if (link.isExplicit) return 20;
-        if (link.isPeer) return 60;
-        return 20;
-      });
-      fg.d3Force('center').strength(0.04);
+      fg.d3Force('charge').strength(-150); 
+      fg.d3Force('link').distance(60);
+      fg.d3Force('collide', (window as any).d3.forceCollide().radius((d: any) => d.val + 2)); 
+      fg.d3Force('center').strength(0.1);
       fg.d3ReheatSimulation();
-      setTimeout(() => { fg.zoomToFit(2000, 60); }, 500);
+      
+      const timer = setTimeout(() => { 
+        fg.zoomToFit(1200, 100); 
+      }, 300);
+      return () => clearTimeout(timer);
     }
   }, [graphData]);
 
   const handleNodeClick = (node: any) => {
-    if (fgRef.current && typeof node.x === 'number' && typeof node.y === 'number') {
-      fgRef.current.centerAt(node.x, node.y, 1000);
-      fgRef.current.zoom(5.5, 1000);
+    if (fgRef.current) {
+      fgRef.current.centerAt(node.x, node.y, 800);
+      fgRef.current.zoom(3.5, 800);
     }
     onNodeClick(node.data);
   };
@@ -140,22 +139,18 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full bg-transparent relative transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50 bg-[#0f0f0f]' : ''}`}
+      className={`w-full h-full bg-transparent relative transition-all duration-300 ${isFullscreen ? 'fixed inset-0 z-50 bg-[#070708]' : ''}`}
     >
-      {/* Fullscreen Toggle — sits in its own stacking layer ABOVE the canvas */}
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          toggleFullscreen();
-        }}
-        style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', zIndex: 9999, pointerEvents: 'all' }}
-        className="bg-transparent border border-[#27272a] text-[#ffffff] px-4 py-2 rounded-sm text-xs lowercase tracking-widest hover:bg-[#27272a] transition-colors cursor-pointer"
-      >
-        {isFullscreen ? t('exit_fullscreen') : t('fullscreen')}
-      </button>
+      {/* UI Controls */}
+      <div className="absolute top-6 left-6 z-[9999] flex gap-2">
+        <button
+          onClick={(e) => { e.preventDefault(); toggleFullscreen(); }}
+          className="bg-transparent border border-[#27272a] text-[#ffffff] px-4 py-2 rounded-sm text-[10px] uppercase tracking-[0.2em] hover:bg-[#ffffff] hover:text-[#000000] transition-all cursor-pointer backdrop-blur-md"
+        >
+          {isFullscreen ? 'Exit Lab' : 'Enter Lab'}
+        </button>
+      </div>
 
-      {/* Canvas — fills container but must NOT intercept button clicks */}
       <div className="absolute inset-0" style={{ zIndex: 1 }}>
         {typeof window !== 'undefined' && (
           <ForceGraph2D
@@ -163,37 +158,79 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
             width={dimensions.width}
             height={dimensions.height}
             graphData={graphData}
-            nodeCanvasObject={(node: any, ctx: any, globalScale: any) => {
-              const size = 3.5;
-              ctx.fillStyle = node.color || '#ffffff';
-              ctx.fillRect(node.x - size / 2, node.y - size / 2, size, size);
-              if (globalScale > 3) {
-                const label = node.data?.name || node.id.slice(0, 6);
-                ctx.font = `${Math.max(2, 3 / globalScale * 2)}px monospace`;
-                ctx.fillStyle = 'rgba(161,161,170,0.8)';
-                ctx.textAlign = 'center';
-                ctx.fillText(label, node.x, node.y + 4);
-              }
-            }}
-            nodePointerAreaPaint={(node: any, color: string, ctx: any) => {
-              ctx.fillStyle = color;
-              ctx.fillRect(node.x - 8, node.y - 8, 16, 16);
-            }}
-            linkColor={(link: any) => {
-              if (link.isExplicit) return 'rgba(220,220,230,0.75)'; // interaction traces — bright
-              if (link.isAffinity) return 'rgba(180,180,190,0.35)'; // cluster bonds — visible
-              if (link.isPeer) return 'rgba(120,120,130,0.18)';    // global web — subtle
-              return 'rgba(160,160,170,0.30)';
-            }}
-            linkWidth={(link: any) => {
-              if (link.isExplicit) return 0.8;
-              if (link.isAffinity) return 0.4;
-              return 0.2;
-            }}
+            nodeLabel="name"
+            d3VelocityDecay={0.3}
             onNodeClick={handleNodeClick}
             backgroundColor="transparent"
+            
+            // LINK RENDERING: Organic Splines
+            linkCurvature={0.25}
+            linkColor={(l: any) => l.isInteraction ? 'rgba(0, 242, 255, 0.4)' : 'rgba(255, 255, 255, 0.04)'}
+            linkWidth={(l: any) => l.isInteraction ? 1.5 : 0.5}
+            linkDirectionalParticles={(l: any) => l.isInteraction ? 4 : 0}
+            linkDirectionalParticleSpeed={0.02}
+            linkDirectionalParticleWidth={2}
+            linkDirectionalParticleColor={() => '#00f2ff'}
+
+            // NODE RENDERING: Bioluminescent Glow
+            nodeCanvasObject={(node: any, ctx: any, globalScale: any) => {
+              const size = node.val;
+              const isInfluencer = node.role === 'Influencer';
+              const isInstitution = node.role === 'Institution';
+              
+              ctx.save();
+              
+              // 1. Shadow/Glow Effect
+              if (isInfluencer || isInstitution) {
+                ctx.shadowBlur = size * 1.5;
+                ctx.shadowColor = node.color;
+              }
+
+              // 2. Shape Rendering
+              ctx.fillStyle = node.color;
+              if (isInstitution) {
+                ctx.fillRect(node.x - size / 2, node.y - size / 2, size, size);
+              } else if (isInfluencer) {
+                // Diamond shape
+                ctx.beginPath();
+                ctx.moveTo(node.x, node.y - size / 1.5);
+                ctx.lineTo(node.x + size / 1.5, node.y);
+                ctx.lineTo(node.x, node.y + size / 1.5);
+                ctx.lineTo(node.x - size / 1.5, node.y);
+                ctx.closePath();
+                ctx.fill();
+              } else {
+                // Circle with a stroke for depth
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, size / 2, 0, 2 * Math.PI, false);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = 1 / globalScale;
+                ctx.stroke();
+              }
+
+              // 3. Label Rendering (Only on zoom)
+              if (globalScale > 2.5) {
+                const label = node.name;
+                const fontSize = 12 / globalScale;
+                ctx.font = `${fontSize}px 'Inter', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillText(label, node.x, node.y + size * 1.2);
+              }
+
+              ctx.restore();
+            }}
+            
+            nodePointerAreaPaint={(node: any, color: string, ctx: any) => {
+              ctx.fillStyle = color;
+              const hitSize = Math.max(node.val * 1.5, 20); 
+              ctx.fillRect(node.x - hitSize / 2, node.y - hitSize / 2, hitSize, hitSize);
+            }}
+
+            cooldownTicks={100}
             warmupTicks={0}
-            cooldownTicks={120}
           />
         )}
       </div>

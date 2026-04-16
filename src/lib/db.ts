@@ -29,6 +29,22 @@ export async function getSimulation(id: string) {
   return data;
 }
 
+/** Miro-style: Fetch EVERYTHING (Agents + Interactions + Metadata) in 1 row */
+export async function getWorldState(id: string) {
+  const { data: sim, error } = await supabaseAdmin
+    .from('simulations')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !sim) return { simulation: null, agents: [], interactions: [] };
+
+  const agents = sim.metrics?.active_agents || [];
+  const interactions = sim.metrics?.recent_interactions || [];
+
+  return { simulation: sim, agents, interactions };
+}
+
 export async function insertSimulation(sim: {
   id: string;
   user_prompt: string;
@@ -51,42 +67,74 @@ export async function updateSimulation(id: string, updates: Record<string, any>)
 
 /** Delete the oldest simulations, keeping at most (MAX_HISTORY - 1) to make room. */
 export async function pruneOldSimulations() {
-  const { data, error } = await supabaseAdmin
-    .from('simulations')
-    .select('id, created_at')
-    .order('created_at', { ascending: true });
-  if (error) throw error;
-  if (!data) return;
-
-  if (data.length >= MAX_HISTORY) {
-    const toDelete = data.slice(0, data.length - (MAX_HISTORY - 1));
-    const ids = toDelete.map((s) => s.id);
-    // Cascade deletes agents/interactions/kg via FK constraints
-    await supabaseAdmin.from('simulations').delete().in('id', ids);
-  }
+  // No-op to prevent DB deadlocks during high-scale runs.
+  // Cleanup should be handled by an offline batch job.
+  return;
 }
 
 // ─── Agents ─────────────────────────────────────────────────────────────────
 
 export async function insertAgents(agents: any[]) {
   if (!agents.length) return;
-  // Supabase has a 1000-row upsert limit; chunk to be safe
-  const CHUNK = 500;
+  const CHUNK = 100; // Smaller chunks for more breathing room
   for (let i = 0; i < agents.length; i += CHUNK) {
-    const { error } = await supabaseAdmin
-      .from('agents')
-      .insert(agents.slice(i, i + CHUNK));
-    if (error) throw error;
+    const chunk = agents.slice(i, i + CHUNK);
+    const { error } = await supabaseAdmin.from('agents').insert(chunk);
+    if (error) {
+      console.error(`Error inserting agents chunk ${i}:`, error);
+      throw error;
+    }
+    console.log(`Successfully persisted agent chunk: ${i + chunk.length}/${agents.length}`);
+    // Brief sleep to avoid saturating connection pool/CPU
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 }
 
-export async function getAgents(simulationId: string) {
+export async function getAgents(simulationId: string, options: { light?: boolean; full?: boolean } = {}) {
+  // 1. Try fetching from the simulation metrics blob first (Miro-style sync)
+  const { data: sim, error: simError } = await supabaseAdmin
+    .from('simulations')
+    .select('metrics')
+    .eq('id', simulationId)
+    .maybeSingle();
+  
+  if (!simError && sim?.metrics?.active_agents) {
+    let agents = sim.metrics.active_agents;
+    if (options.light) {
+      return agents.map((a: any) => ({ id: a.id, name: a.name, current_opinion: a.current_opinion }));
+    }
+    return agents;
+  }
+
+  // 2. Fallback to legacy agents table
+  let select = '*';
+  if (options.light) {
+    select = 'id, name, current_opinion';
+  } else if (!options.full) {
+    select = 'id, name, current_opinion, adaptability, trust_propensity, interaction_frequency, gender, demographics, occupation';
+  }
+
   const { data, error } = await supabaseAdmin
     .from('agents')
-    .select('*')
+    .select(select)
     .eq('simulation_id', simulationId);
+
   if (error) throw error;
   return data ?? [];
+}
+
+/** Miro-style: Batch saving all active state into a single blob */
+export async function saveSimulationState(simulationId: string, agents: any[], interactions?: any[]) {
+  const { error } = await supabaseAdmin
+    .from('simulations')
+    .update({ 
+      metrics: { 
+        active_agents: agents,
+        recent_interactions: interactions || []
+      }
+    })
+    .eq('id', simulationId);
+  if (error) throw error;
 }
 
 export async function updateAgent(id: string, updates: Record<string, any>) {
@@ -97,18 +145,23 @@ export async function updateAgent(id: string, updates: Record<string, any>) {
   if (error) throw error;
 }
 
-// Batch update agents — used by run-cycle route
+/** Batch update agents — used by run-cycle route */
 export async function batchUpdateAgents(
   updates: Array<{ id: string; current_opinion: string; opinion_embedding?: number[] }>
 ) {
   if (!updates.length) return;
-  // Supabase/Postgres may timeout on massive single-statement upserts. Chunk into 500s.
-  const CHUNK = 500;
+  const CHUNK = 300;
   for (let i = 0; i < updates.length; i += CHUNK) {
+    const chunk = updates.slice(i, i + CHUNK);
     const { error } = await supabaseAdmin
       .from('agents')
-      .upsert(updates.slice(i, i + CHUNK), { onConflict: 'id' });
-    if (error) throw error;
+      .upsert(chunk, { onConflict: 'id' });
+
+    if (error) {
+      console.error(`Error batch updating agents chunk ${i}:`, error);
+      throw error;
+    }
+    console.log(`Successfully persisted agent update chunk: ${i + chunk.length}/${updates.length}`);
   }
 }
 
@@ -116,20 +169,29 @@ export async function batchUpdateAgents(
 
 export async function insertInteractions(interactions: any[]) {
   if (!interactions.length) return;
-  const CHUNK = 500;
+  const CHUNK = 300;
   for (let i = 0; i < interactions.length; i += CHUNK) {
-    const { error } = await supabaseAdmin
-      .from('interactions')
-      .insert(interactions.slice(i, i + CHUNK));
-    if (error) throw error;
+    const chunk = interactions.slice(i, i + CHUNK);
+    const { error } = await supabaseAdmin.from('interactions').insert(chunk);
+    if (error) {
+      console.error(`Error inserting interactions chunk ${i}:`, error);
+      throw error;
+    }
+    console.log(`Successfully persisted interactions chunk: ${i + chunk.length}/${interactions.length}`);
   }
 }
 
-export async function getInteractions(simulationId: string) {
-  const { data, error } = await supabaseAdmin
+export async function getInteractions(simulationId: string, limit: number | null = null) {
+  let query = supabaseAdmin
     .from('interactions')
     .select('*')
     .eq('simulation_id', simulationId);
+    
+  if (limit) {
+    query = query.order('round_number', { ascending: false }).limit(limit);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }

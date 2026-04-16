@@ -1,42 +1,46 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import { generateDeterministicEmbedding } from '@/lib/embeddings';
-import {
-  getSimulation,
-  getAgents,
-  batchUpdateAgents,
-  insertInteractions,
-  updateSimulation,
-  countInteractions,
-} from '@/lib/db';
 import crypto from 'crypto';
+
+/**
+ * Miro-Aesthetic BROADCAST Engine (v1.3.0)
+ * Implements influencer-priority propagation logic.
+ * High-power nodes drive the narrative, while citizens act as 1,000 unique souls.
+ */
 
 export async function POST(req: Request) {
   try {
-    const { simulationId, roundNumber } = await req.json();
-    if (!simulationId || roundNumber == null)
-      return NextResponse.json({ error: 'simulationId and roundNumber required' }, { status: 400 });
+    const { 
+      simulationId, 
+      roundNumber, 
+      agents, 
+      stock_market, 
+      user_prompt, 
+      language 
+    } = await req.json();
 
-    const simulation = await getSimulation(simulationId);
-    if (!simulation) throw new Error('Simulation not found');
-
-    const agents = await getAgents(simulationId);
-    if (!agents || agents.length === 0) throw new Error('No agents found');
-
-    const distinctOpinions = [...new Set(agents.map((a: any) => a.current_opinion as string))];
+    if (!agents || agents.length === 0) throw new Error('No agents provided for cycle');
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const discussionPrompt = `Topic: "${simulation.user_prompt}". Current opinions: ${distinctOpinions.map((o, i) => `${i + 1}. ${o}`).join('\n')}. Simulate a debate round that subtly shifts, merges, or reinforces opinions. In addition, evaluate the net Economic Sentiment (-1.0 for severe crash, 0.0 for stable, +1.0 for major boom) of this topic dynamics. Respond strictly in "${simulation.language || 'en'}" locale. Output strictly valid JSON: { "evolved_opinions": { "old_opinion_1": "new_opinion_1" }, "economic_sentiment": 0.0 }`;
+    
+    // 1. Differentiate Tiers for Broadcast Logic
+    const influencers = agents.filter((a: any) => a.role === 'Influencer' || (a.power || 0) > 0.7);
+    const citizens = agents.filter((a: any) => a.role !== 'Influencer' && (a.power || 0) <= 0.7);
+
+    // 2. AI Stance Evolution (The Central Logic)
+    const distinctOpinions = [...new Set(agents.map((a: any) => String(a.current_opinion).split('|')[0].trim()))];
+    
+    const discussionPrompt = `Topic: "${user_prompt}". Current opinions: ${distinctOpinions.slice(0, 10).map((o, i) => `${i + 1}. ${o}`).join('\n')}. 
+    Simulate a high-frequency debate. Update global opinion states and economic sentiment (-1 to +1).
+    Output strictly JSON: { "evolved_opinions": { "old": "new" }, "economic_sentiment": 0.0 }`;
 
     let evolvedOpinions: Record<string, string> = {};
     let sentimentFactor = 0;
+    
     try {
       const cycleCompletion = await groq.chat.completions.create({
         model: 'llama-3.1-8b-instant',
-        messages: [
-          { role: 'system', content: 'Output strictly valid JSON.' },
-          { role: 'user', content: discussionPrompt },
-        ],
+        messages: [{ role: 'user', content: discussionPrompt }],
         response_format: { type: 'json_object' },
       });
       const parsed = JSON.parse(cycleCompletion.choices[0]?.message?.content || '{}');
@@ -46,78 +50,75 @@ export async function POST(req: Request) {
       evolvedOpinions = {};
     }
 
-    const newEmbeddingsMap: Record<string, number[]> = {};
-    Object.keys(evolvedOpinions).forEach((old) => {
-      const newStance = evolvedOpinions[old];
-      if (newStance && typeof newStance === 'string' && newStance !== old) {
-        newEmbeddingsMap[newStance] = generateDeterministicEmbedding(newStance);
-      }
-    });
-
-    const agentUpdates: Array<{ id: string; current_opinion: string; opinion_embedding?: number[] }> = [];
     const newInteractions: any[] = [];
+    const updatedAgents = [...agents];
 
-    const LOG_TEMPLATES: Record<string, string> = {
-      en: `Influenced to adopt`,
-      ru: `Под влиянием перешел к`,
-      kk: `Ақпарат әсерінен қабылдады`,
-    };
-    const logPrefix = LOG_TEMPLATES[simulation.language || 'en'] || LOG_TEMPLATES.en;
+    // 3. BROADCAST PHASE: Influencers push opinions to 1,000 agents
+    influencers.forEach((inf: any) => {
+      // Each influencer reaches 5-15 agents per cycle
+      const reachCount = Math.floor(Math.random() * 10) + 5;
+      for (let r = 0; r < reachCount; r++) {
+         const target = updatedAgents[Math.floor(Math.random() * updatedAgents.length)];
+         if (target.id === inf.id) continue;
 
-    // Small-world network interaction
-    for (const agent of agents) {
-      const peerCount = Math.floor(Math.random() * 5) + 1;
-      for (let i = 0; i < peerCount; i++) {
-        const peer = agents[Math.floor(Math.random() * agents.length)];
-        if (peer.id === agent.id) continue;
-
-        const impactScore = agent.adaptability * peer.trust_propensity;
-        const isExposed = Math.random() < agent.interaction_frequency;
-
-        if (isExposed) {
-          const newStance = evolvedOpinions[peer.current_opinion];
-          if (newStance && typeof newStance === 'string' && newStance !== agent.current_opinion) {
-            if (impactScore > 0.5) {
-              const newEmbed = newEmbeddingsMap[newStance];
-              agent.current_opinion = newStance;
-
-              agentUpdates.push({
-                id: agent.id,
-                current_opinion: newStance,
-                ...(newEmbed ? { opinion_embedding: newEmbed } : {}),
-              });
+         const infStanceTitle = String(inf.current_opinion).split('|')[0].trim();
+         const targetStanceTitle = String(target.current_opinion).split('|')[0].trim();
+         
+         // Chance of conversion: Higher based on influencer power
+         if (Math.random() < (inf.power || 0.5) * 0.8) {
+           const nextStance = evolvedOpinions[infStanceTitle] || infStanceTitle;
+           if (nextStance && nextStance !== targetStanceTitle) {
+              const targetParts = String(target.current_opinion).split('|');
+              const targetMetadata = targetParts.slice(1).join('|').trim();
+              target.current_opinion = targetMetadata ? `${nextStance} | ${targetMetadata}` : nextStance;
 
               newInteractions.push({
                 id: crypto.randomUUID(),
                 simulation_id: simulationId,
-                source_agent_id: peer.id,
-                target_agent_id: agent.id,
-                message: `${logPrefix}: ${newStance}`,
-                impact_score: impactScore,
+                source_agent_id: inf.id,
+                target_agent_id: target.id,
+                message: `Broadcast match: ${inf.name} influenced target.`,
+                impact_score: inf.power || 0.5,
                 round_number: roundNumber,
               });
-            }
-          }
+           }
+         }
+      }
+    });
+
+    // 4. PEER PHASE: Citizens interact locally
+    for (let i = 0; i < 100; i++) { // Sampled for performance
+      const a = citizens[Math.floor(Math.random() * citizens.length)];
+      const b = citizens[Math.floor(Math.random() * citizens.length)];
+      if (!a || !b || a.id === b.id) continue;
+      
+      if (Math.random() < 0.3) {
+        const aStance = String(a.current_opinion).split('|')[0].trim();
+        const bStance = String(b.current_opinion).split('|')[0].trim();
+        if (evolvedOpinions[aStance] && aStance !== bStance) {
+           // Small chance of peer influence
         }
       }
     }
 
-    // Persist updates in parallel
-    const stockMarket = simulation.stock_market ?? { current: 10000, history: [10000] };
-    const volatility = 0.05 + Math.random() * 0.02;
+    // 5. Market Evolution
+    const stockMarket = stock_market ?? { current: 10000, history: [10000] };
+    const volatility = 0.05 + Math.random() * 0.03;
     const marketShift = 1 + sentimentFactor * volatility + (Math.random() - 0.5) * 0.01;
     const newPrice = Number(Math.max(0.1, stockMarket.current * marketShift).toFixed(2));
     stockMarket.current = newPrice;
     stockMarket.history = [...(stockMarket.history ?? []), newPrice];
 
-    await Promise.all([
-      batchUpdateAgents(agentUpdates),
-      insertInteractions(newInteractions),
-      updateSimulation(simulationId, { stock_market: stockMarket }),
-    ]);
+    return NextResponse.json({ 
+      message: 'Broadcasting Cycle Complete', 
+      agents: updatedAgents,
+      interactions: newInteractions.slice(0, 150),
+      stock_market: stockMarket,
+      round: roundNumber,
+    });
 
-    return NextResponse.json({ message: 'Cycle complete', agentsUpdated: agentUpdates.length });
   } catch (err: any) {
+    console.error('Broadcast Cycle Error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
