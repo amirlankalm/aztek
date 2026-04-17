@@ -24,6 +24,32 @@ export default function ReportPage() {
   // Fetch simulation stats to render infographics
   useEffect(() => {
     async function fetchStats() {
+      if (simId?.startsWith('local-')) {
+        // LOCAL MODE: Extract from browser storage instead of API
+        try {
+          const history = JSON.parse(localStorage.getItem('aztek_local_history') || '[]');
+          const localSim = history.find((s: any) => s.id === simId);
+          if (localSim) {
+             const stanceCounts: Record<string, number> = {};
+             (localSim.agents || []).forEach((a: any) => {
+                const opinion = typeof a.current_opinion === 'object' ? (a.current_opinion.label || a.current_opinion.stance || 'unknown') : String(a.current_opinion);
+                const baseStance = opinion.split('|')[0].trim();
+                stanceCounts[baseStance] = (stanceCounts[baseStance] || 0) + 1;
+             });
+             const sortedStances = Object.entries(stanceCounts).sort((a: any, b: any) => b[1] - a[1]);
+             setSimStats({
+                totalAgents: localSim.agents?.length || 0,
+                interactions: localSim.interactions?.length || 0,
+                topStances: sortedStances.slice(0, 5),
+                userTopic: localSim.user_prompt || 'local simulation',
+                language: localSim.language || i18n.language,
+                agents: localSim.agents || []
+             });
+          }
+        } catch(e) { console.error('Local load error:', e); }
+        return;
+      }
+
       try {
         const query = simId ? `?simId=${simId}` : '';
         const res = await fetch(`/api/state${query}`);
@@ -90,27 +116,39 @@ export default function ReportPage() {
     setMessages(newMessages);
 
     try {
-       const res = await fetch('/api/simulate/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-             simId: simId, 
-             message: text,
-             history: messages
-          })
-       });
-       
-       const data = await res.json();
-       if (data.reply) {
-          setMessages([...newMessages, { role: 'assistant', content: data.reply }]);
-       } else if (data.error) {
-          const errMsg = data.error.includes('not found') 
-            ? 'Active simulation data not found. This usually happens if the database was wiped or the session expired. Please start a new simulation.'
-            : `Connection issue: ${data.error}`;
-          setMessages([...newMessages, { role: 'assistant', content: errMsg }]);
-       } else {
-          setMessages([...newMessages, { role: 'assistant', content: t('connection_degraded') }]);
-       }
+        let payload: any = {
+           simId: simId, 
+           message: text,
+           history: messages
+        };
+
+        if (simId?.startsWith('local-') && simStats) {
+           payload.localData = {
+              user_prompt: simStats.userTopic,
+              language: simStats.language || i18n.language,
+              agents: [], // To save tokens/payload size
+              interactionsCount: simStats.interactions,
+              topStances: simStats.topStances.map((s: any) => s[0])
+           };
+        }
+
+        const res = await fetch('/api/simulate/chat', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        if (data.reply) {
+           setMessages([...newMessages, { role: 'assistant', content: data.reply }]);
+        } else if (data.error) {
+           const errMsg = data.error.includes('not found') 
+             ? 'Active simulation data not found. This usually happens if the database was wiped or the session expired. Please start a new simulation.'
+             : `Connection issue: ${data.error}`;
+           setMessages([...newMessages, { role: 'assistant', content: errMsg }]);
+        } else {
+           setMessages([...newMessages, { role: 'assistant', content: t('connection_degraded') }]);
+        }
     } catch (e: any) {
        setMessages([...newMessages, { role: 'assistant', content: `${t('system_offline')}: ${e.message}` }]);
     } finally {

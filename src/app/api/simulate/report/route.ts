@@ -9,15 +9,28 @@ import {
 
 export async function POST(req: Request) {
   try {
-    const { simulationId } = await req.json();
+    const { simulationId, localData } = await req.json();
     if (!simulationId) return NextResponse.json({ error: 'simulationId required' }, { status: 400 });
 
-    const simulation = await getSimulation(simulationId);
-    if (!simulation) throw new Error('Simulation not found');
+    let simulation: any;
+    let agents: any[] = [];
+    let totalInteractions = 0;
 
-    const agents = await getAgents(simulationId);
+    if (simulationId.startsWith('local-') && localData) {
+      simulation = {
+        user_prompt: localData.user_prompt || 'local simulation',
+        language: localData.language || 'en'
+      };
+      agents = localData.agents || [];
+      totalInteractions = localData.interactionsCount || 0;
+    } else {
+      simulation = await getSimulation(simulationId);
+      if (!simulation) throw new Error('Simulation not found');
+      agents = await getAgents(simulationId);
+      totalInteractions = await countInteractions(simulationId);
+    }
+
     const totalAgents = agents.length;
-    const totalInteractions = await countInteractions(simulationId);
 
     const opinionCounts: Record<string, number> = {};
     agents.forEach((a: any) => {

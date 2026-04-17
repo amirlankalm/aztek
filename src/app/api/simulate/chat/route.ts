@@ -4,36 +4,52 @@ import { getSimulation, getAgents, countInteractions, getSimulations } from '@/l
 
 export async function POST(req: Request) {
   try {
-    const { simId, message, history } = await req.json();
+    const { simId, message, history, localData } = await req.json();
     if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 });
 
     let simulation: any;
-    if (simId) {
-      simulation = await getSimulation(simId);
+    let agents: any[] = [];
+    let interactionCount = 0;
+    let uniqueStances: string[] = [];
+
+    if (simId?.startsWith('local-') && localData) {
+      // Local Mode: Use provided telemetry
+      simulation = {
+        id: simId,
+        user_prompt: localData.user_prompt || 'unknown local simulation',
+        language: localData.language || 'en'
+      };
+      agents = localData.agents || [];
+      interactionCount = localData.interactionsCount || 0;
+      uniqueStances = localData.topStances || [];
     } else {
-      // Most recent fallback
-      const sims = await getSimulations();
-      simulation = sims[0] ?? null;
+      // DB Mode: Fetch from Supabase
+      if (simId) {
+        simulation = await getSimulation(simId);
+      } else {
+        const sims = await getSimulations();
+        simulation = sims[0] ?? null;
+      }
+
+      if (!simulation) throw new Error('Simulation network not found');
+
+      agents = await getAgents(simulation.id);
+      interactionCount = await countInteractions(simulation.id);
+      
+      uniqueStances = Array.from(
+        new Set(
+          agents.map((a: any) => {
+            let str = 'unknown';
+            if (typeof a.current_opinion === 'object' && a.current_opinion !== null) {
+              str = a.current_opinion.label || a.current_opinion.stance || JSON.stringify(a.current_opinion);
+            } else {
+              str = String(a.current_opinion);
+            }
+            return str.split('|')[0].trim();
+          })
+        )
+      );
     }
-
-    if (!simulation) throw new Error('Simulation network not found');
-
-    const agents = await getAgents(simulation.id);
-    const interactionCount = await countInteractions(simulation.id);
-
-    const uniqueStances = Array.from(
-      new Set(
-        agents.map((a: any) => {
-          let str = 'unknown';
-          if (typeof a.current_opinion === 'object' && a.current_opinion !== null) {
-            str = a.current_opinion.label || a.current_opinion.stance || JSON.stringify(a.current_opinion);
-          } else {
-            str = String(a.current_opinion);
-          }
-          return str.split('|')[0].trim();
-        })
-      )
-    );
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 

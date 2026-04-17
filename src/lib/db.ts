@@ -55,11 +55,13 @@ export async function insertSimulation(sim: {
   created_at: string;
   stock_market: object;
 }) {
+  if (sim.id.startsWith('local-')) return;
   const { error } = await supabaseAdmin.from('simulations').insert(sim);
   if (error) throw error;
 }
 
 export async function updateSimulation(id: string, updates: Record<string, any>) {
+  if (id.startsWith('local-')) return;
   const { error } = await supabaseAdmin
     .from('simulations')
     .update(updates)
@@ -68,6 +70,7 @@ export async function updateSimulation(id: string, updates: Record<string, any>)
 }
 
 export async function deleteSimulation(id: string) {
+  if (id.startsWith('local-')) return;
   const { error } = await supabaseAdmin
     .from('simulations')
     .delete()
@@ -150,6 +153,7 @@ export async function saveSimulationState(simulationId: string, agents: any[], i
 }
 
 export async function updateAgent(id: string, updates: Record<string, any>) {
+  if (id.startsWith('local-')) return;
   const { error } = await supabaseAdmin
     .from('agents')
     .update(updates)
@@ -162,9 +166,13 @@ export async function batchUpdateAgents(
   updates: Array<{ id: string; current_opinion: string; opinion_embedding?: number[] }>
 ) {
   if (!updates.length) return;
+  // Filter out any agents with local-style IDs (shouldn't happen if generated correctly, but defensive)
+  const validUpdates = updates.filter(u => !u.id.startsWith('local-'));
+  if (!validUpdates.length) return;
+
   const CHUNK = 300;
-  for (let i = 0; i < updates.length; i += CHUNK) {
-    const chunk = updates.slice(i, i + CHUNK);
+  for (let i = 0; i < validUpdates.length; i += CHUNK) {
+    const chunk = validUpdates.slice(i, i + CHUNK);
     const { error } = await supabaseAdmin
       .from('agents')
       .upsert(chunk, { onConflict: 'id' });
@@ -194,6 +202,7 @@ export async function insertInteractions(interactions: any[]) {
 }
 
 export async function getInteractions(simulationId: string, limit: number | null = null) {
+  if (simulationId.startsWith('local-')) return [];
   let query = supabaseAdmin
     .from('interactions')
     .select('*')
