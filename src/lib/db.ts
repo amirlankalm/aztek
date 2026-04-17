@@ -20,6 +20,7 @@ export async function getSimulations() {
 }
 
 export async function getSimulation(id: string) {
+  if (id.startsWith('local-')) return null;
   const { data, error } = await supabaseAdmin
     .from('simulations')
     .select('*')
@@ -31,6 +32,7 @@ export async function getSimulation(id: string) {
 
 /** Miro-style: Fetch EVERYTHING (Agents + Interactions + Metadata) in 1 row */
 export async function getWorldState(id: string) {
+  if (id.startsWith('local-')) return { simulation: null, agents: [], interactions: [] };
   const { data: sim, error } = await supabaseAdmin
     .from('simulations')
     .select('*')
@@ -99,6 +101,7 @@ export async function insertAgents(agents: any[]) {
 }
 
 export async function getAgents(simulationId: string, options: { light?: boolean; full?: boolean } = {}) {
+  if (simulationId.startsWith('local-')) return [];
   // 1. Try fetching from the simulation metrics blob first (Miro-style sync)
   const { data: sim, error: simError } = await supabaseAdmin
     .from('simulations')
@@ -133,6 +136,7 @@ export async function getAgents(simulationId: string, options: { light?: boolean
 
 /** Miro-style: Batch saving all active state into a single blob */
 export async function saveSimulationState(simulationId: string, agents: any[], interactions?: any[]) {
+  if (simulationId.startsWith('local-')) return;
   const { error } = await supabaseAdmin
     .from('simulations')
     .update({ 
@@ -205,6 +209,7 @@ export async function getInteractions(simulationId: string, limit: number | null
 }
 
 export async function countInteractions(simulationId: string) {
+  if (simulationId.startsWith('local-')) return 0;
   const { count, error } = await supabaseAdmin
     .from('interactions')
     .select('id', { count: 'exact', head: true })
@@ -227,6 +232,7 @@ export async function insertKnowledgeGraph(entries: any[]) {
 }
 
 export async function getKnowledgeGraph(simulationId: string) {
+  if (simulationId.startsWith('local-')) return [];
   const { data, error } = await supabaseAdmin
     .from('knowledge_graph')
     .select('*')
