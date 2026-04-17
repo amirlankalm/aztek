@@ -122,6 +122,38 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteSim = async (id: string, isLocal: boolean, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger simulation load
+    if (!window.confirm(t('confirm_delete') || 'Permanently delete this simulation?')) return;
+
+    try {
+      if (isLocal) {
+        const updatedLocal = localHistory.filter(s => s.id !== id);
+        setLocalHistory(updatedLocal);
+        localStorage.setItem('aztek_local_history', JSON.stringify(updatedLocal));
+      } else {
+        const res = await fetch(`/api/state?simId=${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Cloud deletion failed');
+        // Refresh cloud history list
+        handleRefreshHistory();
+      }
+
+      // If active sim was deleted, clear state
+      if (simId === id) {
+        setSimId(null);
+        setAgents([]);
+        setInteractions([]);
+        setOpinions([]);
+        setStatus(t('status_ready'));
+      }
+      
+      addLog(`SUCCESS: Simulation ${id.slice(0, 8)} removed.`);
+    } catch (err: any) {
+      console.error(err);
+      setStatus(`[DELETE ERROR] ${err.message}`);
+    }
+  };
+
   const executeAction = async (endpoint: string, payload: any, updatingStatus: string) => {
     setIsLoading(true); setStatus(updatingStatus);
     try {
@@ -391,7 +423,15 @@ export default function Dashboard() {
                      >
                         <div className="flex justify-between items-start">
                           <span className="block text-[#ffffff] text-[10px] uppercase tracking-widest truncate max-w-[120px]">{sim.user_prompt}</span>
-                          <span className="text-[9px] text-[#a1a1aa] bg-[#27272a] px-1 rounded-sm uppercase tracking-tighter">Local</span>
+                          <div className="flex items-center gap-2">
+                             <span className="text-[9px] text-[#a1a1aa] bg-[#27272a] px-1 rounded-sm uppercase tracking-tighter">Local</span>
+                             <button 
+                               onClick={(e) => handleDeleteSim(sim.id || '', true, e)}
+                               className="text-[9px] text-[#52525b] hover:text-red-500 transition-colors uppercase tracking-tighter cursor-pointer"
+                             >
+                               [x]
+                             </button>
+                           </div>
                         </div>
                         <span className="block text-[#52525b] text-[9px] mt-1 group-hover:text-[#a1a1aa] transition-colors">
                            {new Date(sim.created_at || Date.now()).toLocaleString(i18n.language)}
@@ -412,7 +452,15 @@ export default function Dashboard() {
                        }}
                        className="text-left p-3 border border-[#27272a] rounded-sm bg-[#0a0a0a] hover:bg-[#18181b] transition-colors group cursor-pointer"
                     >
-                       <span className="block text-[#ffffff] text-[10px] uppercase tracking-widest truncate">{sim.user_prompt}</span>
+                       <div className="flex justify-between items-start">
+                          <span className="block text-[#ffffff] text-[10px] uppercase tracking-widest truncate max-w-[120px]">{sim.user_prompt}</span>
+                          <button 
+                             onClick={(e) => handleDeleteSim(sim.id, false, e)}
+                             className="text-[9px] text-[#52525b] hover:text-red-500 transition-colors uppercase tracking-tighter cursor-pointer"
+                          >
+                             [delete]
+                          </button>
+                       </div>
                        <span className="block text-[#52525b] text-[9px] mt-1 group-hover:text-[#a1a1aa] transition-colors">
                           {new Date(sim.created_at).toLocaleString(i18n.language)}
                        </span>

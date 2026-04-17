@@ -94,7 +94,7 @@ export default function ReportPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-             simId: simId, // undefined falls back to newest DB entry automatically
+             simId: simId, 
              message: text,
              history: messages
           })
@@ -103,11 +103,16 @@ export default function ReportPage() {
        const data = await res.json();
        if (data.reply) {
           setMessages([...newMessages, { role: 'assistant', content: data.reply }]);
+       } else if (data.error) {
+          const errMsg = data.error.includes('not found') 
+            ? 'Active simulation data not found. This usually happens if the database was wiped or the session expired. Please start a new simulation.'
+            : `Connection issue: ${data.error}`;
+          setMessages([...newMessages, { role: 'assistant', content: errMsg }]);
        } else {
           setMessages([...newMessages, { role: 'assistant', content: t('connection_degraded') }]);
        }
-    } catch (e) {
-       setMessages([...newMessages, { role: 'assistant', content: t('system_offline') }]);
+    } catch (e: any) {
+       setMessages([...newMessages, { role: 'assistant', content: `${t('system_offline')}: ${e.message}` }]);
     } finally {
        setIsLoading(false);
     }

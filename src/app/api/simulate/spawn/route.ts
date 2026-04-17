@@ -22,8 +22,8 @@ export async function POST(req: Request) {
     Entities:
     ${entityContext}
 
-    Generate 30 distinct social segments. 
-    JSON: { "segments": [{ "archetype": "...", "stance": "Core conviction", "role": "Influencer|Citizen|Institution", "power": 0-1 }] }`;
+    Generate 50 distinct social niches (segments). 
+    JSON: { "segments": [{ "archetype": "...", "stance": "A core conviction (1 sentence)", "role": "Influencer|Citizen|Institution", "power": 0-1 }] }`;
 
     const completion = await groq.chat.completions.create({
       model: 'llama-3.1-8b-instant',
@@ -38,11 +38,15 @@ export async function POST(req: Request) {
     const firstNames = ['James','Mary','Robert','Patricia','John','Jennifer','Michael','Linda','David','Elizabeth','William','Barbara','Richard','Susan','Joseph','Jessica','Thomas','Sarah','Charles','Karen','Christopher','Nancy','Daniel','Lisa','Matthew','Betty','Anthony','Margaret','Mark','Sandra','Donald','Ashley','Steven','Kimberly','Paul','Emily','Andrew','Donna','Joshua','Michelle','Kenneth','Dorothy','Kevin','Carol','Brian','Amanda','George','Melissa','Timothy','Deborah','Ronald','Stephanie','Edward','Rebecca','Jason','Sharon','Jeffrey','Laura','Ryan','Cynthia','Jacob','Kathleen','Gary','Amy','Nicholas','Shirley','Eric','Angela','Jonathan','Helen','Stephen','Anna','Larry','Brenda','Justin','Pamela','Scott','Nicole','Brandon','Emma','Benjamin','Samantha','Samuel','Katherine','Gregory','Christine','Alexander','Debra','Frank','Rachel','Patrick','Catherine','Raymond','Carolyn','Jack','Janet','Dennis','Ruth','Jerry','Maria'];
     const lastNames = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Rodriguez','Martinez','Hernandez','Lopez','Gonzalez','Wilson','Anderson','Thomas','Taylor','Moore','Jackson','Martin','Lee','Perez','Thompson','White','Harris','Sanchez','Clark','Ramirez','Lewis','Robinson','Walker','Young','Allen','King','Wright','Scott','Torres','Nguyen','Hill','Flores','Green','Adams','Nelson','Baker','Hall','Rivera','Campbell','Mitchell','Carter','Roberts','Gomez','Phillips','Evans','Turner','Diaz','Parker','Cruz','Edwards','Collins','Reyes','Stewart','Morris','Morales','Murphy','Cook','Rogers','Gutierrez','Morgan','Dean','Khan','Patel','Abbott','Karpov','Chen','Popov','Silva','Schmidt','Ferrari','Sato','Suzuki','Wong','Gore','Tesla','Zucker','Altman','Buterin','Saylor','Novogratz','Wood'];
     
-    const internalMotivations = [
-      'driven by historical skepticism', 'fueled by economic anxiety', 'seeking social validation', 
-      'protecting household stability', 'vocalizing for the unheard', 'peting for status',
-      'fearing digital displacement', 'advocating for extreme transparency', 'hoping for market recovery',
-      'deeply suspicious of institutional motives', 'prioritizing environmental ethics', 'obsessed with data accuracy'
+    // Identity-level diversity pools
+    const professions = ['Software Engineer', 'Retail Manager', 'Doctor', 'High School Teacher', 'Construction Worker', 'Pensioner', 'University Student', 'Local Politician', 'Small Business Owner', 'Journalist', 'Financial Analyst', 'Truck Driver', 'Graphic Designer', 'Logistics Coordinator'];
+    const demographics = ['Gen Z', 'Millennial', 'Gen X', 'Baby Boomer', 'Parent of two', 'Single professional', 'Recent immigrant', 'Rural resident', 'Urban commuter'];
+    
+    const individualNuances = [
+      'deeply suspicious of mainstream narratives', 'optimistic about technological disruption', 'prioritizing community stability above all', 
+      'motivated by ideological purism', 'seeking pragmatic financial outcomes', 'concerned about future generations',
+      'neutral but easily swayed by evidence', 'heavily influenced by local peers', 'distrusting of centralized authority',
+      'values efficiency and speed', 'fears radical change', 'embraces complexity and ambiguity'
     ];
 
     const agents = [];
@@ -54,7 +58,11 @@ export async function POST(req: Request) {
        let name = "";
        let role = seg.role;
        let power = seg.power;
-       let alignment = seg.stance;
+       let baseStance = seg.stance;
+       
+       const profession = professions[i % professions.length];
+       const demo = demographics[i % demographics.length];
+       const nuance = individualNuances[i % individualNuances.length];
 
        // UNIQUNESS: Real entities prioritized for Influencer roles
        if (seg.role === 'Influencer' && i < 30) {
@@ -68,29 +76,29 @@ export async function POST(req: Request) {
        }
        
        if (!name) {
-         // Recursive uniqueness for citizens
          const f = firstNames[Math.floor((i * 13) % firstNames.length)];
          const l = lastNames[Math.floor((i * 23) % lastNames.length)];
-         name = `${f} ${l} ${i + 1}`; 
+         name = `${f} ${l}`; 
          role = 'Citizen';
          power = 0.05 + Math.random() * 0.2;
        }
 
-       // UNIQUENESS: Narrative Soul
-       const motivation = internalMotivations[i % internalMotivations.length];
+       // SOTA UNIQUENESS: The High-Entropy Opinion String
+       // Combining Segment Stance + Professional Lens + Individual Nuance
        const hash = Math.random().toString(36).substring(7).toUpperCase();
-       alignment = `${seg.stance} | Context: ${motivation} | UID: ${hash}`;
+       const opinion = `${baseStance} | Perspective: As a ${demo} ${profession}, I am ${nuance}. [ID: ${hash}]`;
 
        agents.push({
-         id: `agent-${i}`,
+         id: `agent-${i}-${hash}`,
          simulation_id: simulationId,
          name,
-         current_opinion: alignment,
+         current_opinion: opinion,
          role,
          power: Number(power.toFixed(3)),
          metadata: {
-           bias: Math.random().toFixed(2),
-           activity_score: Math.random().toFixed(2),
+           profession,
+           demographic: demo,
+           nuance,
            identity_hash: hash
          }
        });

@@ -65,6 +65,14 @@ export async function updateSimulation(id: string, updates: Record<string, any>)
   if (error) throw error;
 }
 
+export async function deleteSimulation(id: string) {
+  const { error } = await supabaseAdmin
+    .from('simulations')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
 /** Delete the oldest simulations, keeping at most (MAX_HISTORY - 1) to make room. */
 export async function pruneOldSimulations() {
   // No-op to prevent DB deadlocks during high-scale runs.

@@ -62,6 +62,7 @@ Your instructions:
 
     return NextResponse.json({ reply });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('Chat API Error:', err);
+    return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 });
   }
 }

@@ -99,7 +99,9 @@ const resources = {
       "meth_consensus": "promoting gradual, consensus-based shifts",
       "meth_decentralized": "supporting decentralized community action",
       "meth_regulatory": "demanding strict regulatory oversight",
-      "meth_autonomy": "prioritizing individual autonomy"
+      "meth_autonomy": "prioritizing individual autonomy",
+      "confirm_delete": "Permanently delete this simulation?",
+      "simulation_not_found_report": "Active simulation data not found. This usually happens if the database was wiped or the session expired. Please start a new simulation."
     }
   },
   ru: {
@@ -198,7 +200,9 @@ const resources = {
       "meth_consensus": "продвижение изменений на основе консенсуса",
       "meth_decentralized": "поддержку децентрализованных действий сообщества",
       "meth_regulatory": "требование строгого регуляторного надзора",
-      "meth_autonomy": "приоритет индивидуальной автономии"
+      "meth_autonomy": "приоритет индивидуальной автономии",
+      "confirm_delete": "Вы уверены, что хотите навсегда удалить эту симуляцию?",
+      "simulation_not_found_report": "Активные данные симуляции не найдены. Это могло произойти из-за очистки базы данных или истечения сессии. Пожалуйста, начните новую симуляцию."
     }
   },
   kk: {
@@ -297,7 +301,9 @@ const resources = {
       "meth_consensus": "біртіндеп өзгерту",
       "meth_decentralized": "қауымдастық әрекеттерін қолдау",
       "meth_regulatory": "қатаң реттеуші қадағалау",
-      "meth_autonomy": "жеке автономияға басымдық беру"
+      "meth_autonomy": "жеке автономияға басымдық беру",
+      "confirm_delete": "Бұл симуляцияны біржола жоюды қалайсыз ба?",
+      "simulation_not_found_report": "Белсенді симуляция деректері табылмады. Бұл деректер базасының тазалануына немесе сессияның мерзімі өтуіне байланысты болуы мүмкін. Жаңа симуляцияны бастаңыз."
     }
   }
 };
