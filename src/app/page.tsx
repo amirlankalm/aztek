@@ -59,24 +59,25 @@ export default function Dashboard() {
   }, [simId, agents, round, opinions, interactions, prompt]);
 
   // 2. Hydration: Recover from localStorage on mount
+  const fetchHistory = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/state');
+      const contentType = res.headers.get('content-type');
+      if (res.ok && contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.simulations) setHistory(data.simulations);
+      }
+    } catch (err) {
+      console.error('Fetch History Error:', err);
+    }
+  }, []);
+
+  // 2. Hydration: Recover from localStorage on mount
   React.useEffect(() => {
     const saved = localStorage.getItem('aztek_local_history');
     if (saved) setLocalHistory(JSON.parse(saved));
-
-    const fetchHistory = async () => {
-      try {
-        const res = await fetch('/api/state');
-        const contentType = res.headers.get('content-type');
-        if (res.ok && contentType && contentType.includes('application/json')) {
-          const data = await res.json();
-          if (data.simulations) setHistory(data.simulations);
-        }
-      } catch (err) {
-        console.error('Fetch History Error:', err);
-      }
-    };
     fetchHistory();
-  }, []);
+  }, [fetchHistory]);
 
   const processOpinions = (agentsList: any[]) => {
     const ops = agentsList.map((a: any) => {
@@ -135,7 +136,7 @@ export default function Dashboard() {
         const res = await fetch(`/api/state?simId=${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Cloud deletion failed');
         // Refresh cloud history list
-        handleRefreshHistory();
+        fetchHistory();
       }
 
       // If active sim was deleted, clear state
