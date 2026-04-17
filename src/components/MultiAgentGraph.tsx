@@ -50,9 +50,9 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
       const agentOpKey = opinionToKey(agent.current_opinion);
       const opIndex = opinions.indexOf(agentOpKey);
 
-      let nodeVal = 5; 
-      if (agent.role === 'Influencer') nodeVal = 20;
-      else if (agent.role === 'Media' || agent.role === 'Institution') nodeVal = 12;
+      let nodeVal = 8; // Boosted from 5
+      if (agent.role === 'Influencer') nodeVal = 32; // Boosted from 20
+      else if (agent.role === 'Media' || agent.role === 'Institution') nodeVal = 18; // Boosted from 12
 
       baseNodes.push({
         id: agent.id,
@@ -101,10 +101,10 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
   useEffect(() => {
     const fg = fgRef.current;
     if (fg && fg.d3Force) {
-      fg.d3Force('charge').strength(-150); 
-      fg.d3Force('link').distance(60);
-      fg.d3Force('collide', (window as any).d3.forceCollide().radius((d: any) => d.val + 2)); 
-      fg.d3Force('center').strength(0.1);
+      fg.d3Force('charge').strength(-200); // Stronger repulsion for clarity
+      fg.d3Force('link').distance(80); // More space between nodes
+      fg.d3Force('collide', (window as any).d3.forceCollide().radius((d: any) => d.val + 4)); 
+      fg.d3Force('center').strength(0.05);
       fg.d3ReheatSimulation();
       
       const timer = setTimeout(() => { 
@@ -163,13 +163,13 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
             onNodeClick={handleNodeClick}
             backgroundColor="transparent"
             
-            // LINK RENDERING: Organic Splines
-            linkCurvature={0.25}
-            linkColor={(l: any) => l.isInteraction ? 'rgba(0, 242, 255, 0.4)' : 'rgba(255, 255, 255, 0.04)'}
-            linkWidth={(l: any) => l.isInteraction ? 1.5 : 0.5}
-            linkDirectionalParticles={(l: any) => l.isInteraction ? 4 : 0}
-            linkDirectionalParticleSpeed={0.02}
-            linkDirectionalParticleWidth={2}
+            // LINK RENDERING: Organic Splines (Brighter & Thicker)
+            linkCurvature={0.3}
+            linkColor={(l: any) => l.isInteraction ? 'rgba(0, 242, 255, 0.85)' : 'rgba(255, 255, 255, 0.15)'}
+            linkWidth={(l: any) => l.isInteraction ? 2.5 : 1.0}
+            linkDirectionalParticles={(l: any) => l.isInteraction ? 6 : 0}
+            linkDirectionalParticleSpeed={0.03}
+            linkDirectionalParticleWidth={3}
             linkDirectionalParticleColor={() => '#00f2ff'}
 
             // NODE RENDERING: Bioluminescent Glow
