@@ -103,7 +103,6 @@ export default function MultiAgentGraph({ agents, interactions, opinions, onNode
     if (fg && fg.d3Force) {
       fg.d3Force('charge').strength(-200); // Stronger repulsion for clarity
       fg.d3Force('link').distance(80); // More space between nodes
-      fg.d3Force('collide', (window as any).d3.forceCollide().radius((d: any) => d.val + 4)); 
       fg.d3Force('center').strength(0.05);
       fg.d3ReheatSimulation();
       
